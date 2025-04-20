@@ -23,9 +23,11 @@ jobs:
           npm install -g javascript-obfuscator
           npm install -g wrangler
 
-      - name: Download latest worker.js
+      - name: Download project files
         run: |
-          curl -o worker.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/main/src/worker.js
+          git clone https://github.com/bia-pain-bache/BPB-Worker-Panel.git temp
+          cp -r temp/src/* .
+          rm -rf temp
 
       - name: Obfuscate worker.js
         run: |
