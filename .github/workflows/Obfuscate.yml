@@ -52,22 +52,13 @@ jobs:
           javascript-obfuscator origin.js --output _worker.js \
             --compact true \
             --identifier-names-generator hexadecimal \
-            --rename-globals false \
-            --string-array true \
-            --string-array-encoding 'none' \
-            --string-array-threshold 0.5 \
-            --transform-object-keys false \
+            --rename-globals true \
+            --string-array false \
+            --string-array-encoding 'base64' \
+            --string-array-threshold 0.15 \
+            --transform-object-keys true \
             --self-defending false \
-            --simplify true \
-            --control-flow-flattening false \
-            --dead-code-injection false \
-            --debug-protection false \
-            --disable-console-output false \
-            --domain-lock '' \
-            --reserved-names '' \
-            --reserved-strings '' \
-            --split-strings false \
-            --target 'browser'
+            --simplify false
           ls -l _worker.js
           head -n 10 _worker.js
 
