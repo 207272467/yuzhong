@@ -1,70 +1,39 @@
-name: Build Obfuscate BPB Panel
+name: Deploy Worker to Cloudflare
 
 on:
-  push:
-    branches:
-      - main
   schedule:
-    - cron: "0 17 * * *"
-
-permissions:
-  contents: write
+    - cron: '0 0 */3 * *'  # 每三天 UTC 0点运行
+  workflow_dispatch:      # 允许手动触发
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Check out the code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: "latest"
+          node-version: '18'
 
       - name: Install dependencies
         run: |
           npm install -g javascript-obfuscator
-          javascript-obfuscator --version
-          # Install jq for JSON parsing
-          sudo apt-get update
-          sudo apt-get install -y jq
+          npm install -g wrangler
 
-      - name: Fetch and download latest unobfuscated-worker.js
+      - name: Download latest worker.js
         run: |
-          # Get the latest release info from GitHub API
-          RELEASE_INFO=$(curl -s https://api.github.com/bia-pain-bache/BPB-Worker-Panel/releases/latest)
-          # Extract the download URL for unobfuscated-worker.js
-          DOWNLOAD_URL=$(echo "$RELEASE_INFO" | jq -r '.assets[] | select(.name == "worker.js") | .browser_download_url')
-          # Check if URL was found
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "Error: Could not find unobfuscated-worker.js in latest release"
-            exit 1
-          fi
-          # Download the file
-          wget -O origin.js "$DOWNLOAD_URL"
-          ls -l origin.js
-          head -n 10 origin.js
+          curl -o worker.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/main/src/worker.js
 
-      - name: Obfuscate BPB worker js
+      - name: Obfuscate worker.js
         run: |
-          javascript-obfuscator origin.js --output _worker.js \
-          --compact true \
-          --identifier-names-generator hexadecimal \
-          --rename-globals true \
-          --string-array true \
-          --string-array-encoding 'base64' \
-          --string-array-threshold 0.75 \
-          --transform-object-keys true \
-          --self-defending false \
-          --simplify true
-          ls -l _worker.js
-          head -n 10 _worker.js
+          javascript-obfuscator worker.js --output worker.js --config '{"compact":true,"controlFlowFlattening":true,"controlFlowFlatteningThreshold":0.75,"deadCodeInjection":true,"deadCodeInjectionThreshold":0.4,"debugProtection":false,"debugProtectionInterval":false,"disableConsoleOutput":true,"identifierNamesGenerator":"hexadecimal","log":false,"renameGlobals":false,"rotateStringArray":true,"selfDefending":true,"stringArray":true,"stringArrayEncoding":["base64"],"stringArrayThreshold":0.75,"unicodeEscapeSequence":false}'
 
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          branch: main
-          commit_message: ':arrow_up: update latest bpb panel'
-          commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
-          push_options: '--set-upstream' 
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler deploy worker.js --name ${{ secrets.WORKER_NAME }} 
